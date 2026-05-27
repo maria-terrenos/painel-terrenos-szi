@@ -45,8 +45,13 @@ def _get_access_token() -> str | None:
 
         sa_json_str = os.getenv("GOOGLE_SA_JSON")
         if sa_json_str:
-            # Modo produção: carrega direto da env var
-            sa_info = json.loads(sa_json_str)
+            # Suporta tanto JSON puro quanto base64 (necessário no Coolify)
+            try:
+                import base64
+                decoded = base64.b64decode(sa_json_str).decode("utf-8")
+                sa_info = json.loads(decoded)
+            except Exception:
+                sa_info = json.loads(sa_json_str)
             creds = service_account.Credentials.from_service_account_info(sa_info, scopes=SCOPES)
         elif Path(SA_PATH).exists():
             # Modo local: carrega do arquivo
