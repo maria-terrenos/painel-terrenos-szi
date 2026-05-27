@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel de Terrenos — SZI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #4f7cff;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    :root.light {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface2: #f8fafc;
+      --border: #e2e8f0;
+      --accent: #4f7cff;
+      --green: #16a34a;
+      --yellow: #ca8a04;
+      --red: #dc2626;
+      --text: #0f172a;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    /* Header */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 32px; height: 32px; background: linear-gradient(135deg, #4f7cff, #7c5cfc); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+    .header h1 { font-size: 15px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .sync-info { font-size: 12px; color: var(--muted); }
+
+    /* Toggle tema */
+    .btn-theme {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, color .2s;
+      flex-shrink: 0;
+    }
+    .btn-theme:hover { color: var(--text); background: var(--border); }
+
+    .btn-sync {
+      background: var(--accent); color: #fff; border: none; padding: 7px 16px;
+      border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 5px; transition: opacity .2s;
+    }
+    .btn-sync:hover { opacity: .85; }
+    .btn-sync:disabled { opacity: .5; cursor: not-allowed; }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 380px 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 10px;
+      padding: 12px 16px;
+      align-items: start;
+    }
+
+    /* Card base */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── Widget Leadtime Funil ── */
+    .widget-leadtime { grid-column: 1; grid-row: 1; }
+    /* col 1 empilhado: Leadtime → FI → AP */
+
+    .metric-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .metric-value {
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+    }
+    .metric-unit {
+      font-size: 16px;
+      color: var(--muted);
+      padding-bottom: 6px;
+    }
+    .metric-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .badge-up   { background: rgba(239,68,68,.15);  color: var(--red);   }
+    .badge-down { background: rgba(34,197,94,.15);  color: var(--green); }
+    .badge-flat { background: rgba(100,116,139,.15); color: var(--muted); }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px;
+    }
+    .metric-unit-block {
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 6px;
+      gap: 2px;
+    }
+    .metric-unit-main {
+      font-size: 16px;
+      color: var(--muted);
+    }
+    .metric-unit-tag {
+      font-size: 10px;
+      color: var(--accent);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    /* Sparkline */
+    .sparkline-wrap { height: 48px; margin-bottom: 10px; }
+
+    /* Ofensores */
+    .ofensores-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .ofensor-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .ofensor-row:last-child { border-bottom: none; }
+    .ofensor-rank {
+      font-size: 11px;
+      color: var(--muted);
+      width: 18px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+    .ofensor-info { flex: 1; min-width: 0; }
+    .ofensor-id { font-size: 13px; font-weight: 600; }
+    .ofensor-local { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ofensor-etapa {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: var(--surface2);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .ofensor-dias {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      flex-shrink: 0;
+      text-align: right;
+      min-width: 36px;
+    }
+    .ofensor-dias span { font-size: 10px; color: var(--muted); font-weight: 400; }
+
+    /* Bar ofensor */
+    .bar-track {
+      width: 100%;
+      height: 3px;
+      background: var(--surface2);
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+    .bar-fill {
+      height: 3px;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width .6s ease;
+    }
+    .bar-fill.danger { background: var(--red); }
+    .bar-fill.warning { background: var(--yellow); }
+
+    /* Placeholders */
+    .placeholder {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .loading-dot { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+
+    /* ── Widgets Falta Informação + AP (estrutura compartilhada) ── */
+    .widget-faltainfo    { grid-column: 2; grid-row: 1; }
+    .widget-ap           { grid-column: 3; grid-row: 1; }
+    .widget-estudos      { grid-column: 1; grid-row: 2; }
+    .widget-proposta     { grid-column: 2 / span 2; grid-row: 2; }
+    .widget-pre-proposta { grid-column: 2 / span 2; grid-row: 3; }
+    .widget-final-funil  { grid-column: 2 / span 2; grid-row: 4; }
+
+    /* Tabela de proposta */
+    .proposta-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .proposta-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .chip-validar { background: rgba(234,179,8,.15); color: var(--yellow); }
+    .chip-semtag  { background: rgba(100,116,139,.15); color: var(--muted); }
+    .chip-total   { background: rgba(79,124,255,.12); color: var(--accent); }
+
+    .proposta-table { width: 100%; border-collapse: collapse; }
+    .proposta-header { margin-bottom: 8px; }
+    .proposta-table th {
+      text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--muted); padding: 0 8px 5px;
+    }
+    .proposta-row { border-top: 1px solid var(--border); transition: background .15s; }
+    .proposta-row:hover { background: var(--surface2); }
+    .proposta-row td { padding: 5px 8px; font-size: 13px; vertical-align: middle; }
+    .prop-id { font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .prop-loc { color: var(--muted); font-size: 12px; }
+    .prop-dias { font-weight: 600; white-space: nowrap; }
+    .prop-tag { }
+    .tag-validar {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+      background: rgba(234,179,8,.15); color: var(--yellow); white-space: nowrap;
+    }
+    .prop-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .prop-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text); text-decoration: none; transition: background .15s, opacity .15s;
+      white-space: nowrap;
+    }
+    .prop-btn:hover { background: var(--border); }
+    .prop-btn:disabled, .prop-btn.disabled {
+      opacity: .35; cursor: not-allowed; pointer-events: none;
+    }
+    .prop-btn-slack { border-color: rgba(79,124,255,.3); color: var(--accent); }
+    .prop-btn-slack:hover { background: rgba(79,124,255,.1); }
+
+    .estudos-section { margin-bottom: 10px; }
+    .estudos-section:last-child { margin-bottom: 0; }
+    .estudos-divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+    .estudos-stage-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .estudos-stage-pill {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; padding: 3px 8px; border-radius: 10px;
+    }
+    .pill-em { background: rgba(79,124,255,.15); color: var(--accent); }
+    .pill-ep { background: rgba(124,92,252,.15); color: #7c5cfc; }
+    .estudos-avg {
+      font-size: 22px; font-weight: 700; line-height: 1; color: var(--text);
+    }
+    .estudos-avg-unit { font-size: 12px; color: var(--muted); margin-left: 4px; }
+    .estudos-avg-tag {
+      font-size: 10px; color: var(--accent); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .4px; margin-left: 4px;
+    }
+    .estudos-sub { font-size: 11px; color: var(--muted); margin: 2px 0 6px; }
+
+    .fi-list-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 6px; border-radius: 7px;
+      cursor: pointer; transition: background .15s;
+      border-bottom: 1px solid var(--border);
+    }
+    .fi-list-item:last-child { border-bottom: none; }
+    .fi-list-item:hover { background: var(--surface2); }
+    .fi-tid { font-size: 13px; font-weight: 700; color: var(--accent); min-width: 64px; }
+    .fi-loc { flex: 1; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fi-days { font-size: 13px; font-weight: 600; min-width: 30px; text-align: right; }
+    .fi-slack-btn { font-size: 14px; flex-shrink: 0; }
+
+    /* ── Final Funil — item compacto ── */
+    .ff-item {
+      padding: 7px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ff-item:last-child { border-bottom: none; }
+    .ff-item-top {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+    }
+    .ff-item-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 560px; max-width: 95vw;
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header-title { font-size: 14px; font-weight: 600; }
+    .modal-header-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .modal-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 18px; line-height: 1;
+      padding: 4px; border-radius: 6px; transition: color .15s;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-messages {
+      flex: 1; overflow-y: auto;
+      padding: 16px 20px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .chat-msg { display: flex; flex-direction: column; gap: 3px; }
+    .chat-msg.parent { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+    .chat-meta { display: flex; align-items: center; gap: 8px; }
+    .chat-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #4f7cff, #7c5cfc);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .chat-name { font-size: 12px; font-weight: 600; }
+    .chat-time { font-size: 11px; color: var(--muted); }
+    .chat-text {
+      font-size: 13px; color: var(--text); line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+      padding-left: 36px;
+    }
+    .modal-empty {
+      text-align: center; color: var(--muted); font-size: 13px;
+      padding: 40px 20px;
+    }
+    .modal-loading { text-align: center; padding: 40px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">SZ</div>
+    <h1>Painel de Terrenos</h1>
+  </div>
+  <div class="header-right">
+    <span class="sync-info" id="sync-info">Carregando...</span>
+    <button class="btn-theme" id="btn-theme" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+    <button class="btn-sync" id="btn-sync" onclick="syncManual()">
+      <span id="sync-icon">↻</span> Atualizar
+    </button>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- Widget 1: Leadtime do Funil -->
+  <div class="card widget-leadtime">
+    <div class="card-title">Leadtime — Funil de Terrenos</div>
+    <div class="metric-label">tempo médio — triagem até etapa atual</div>
+
+    <div class="metric-row">
+      <div class="metric-value" id="lt-media">—</div>
+      <div class="metric-unit-block">
+        <span class="metric-unit-main">dias</span>
+        <span class="metric-unit-tag">média</span>
+      </div>
+    </div>
+
+    <div id="lt-badge" class="metric-badge badge-flat" style="display:none"></div>
+    <div class="metric-sub" id="lt-sub">— terrenos ativos no funil</div>
+
+    <div class="sparkline-wrap">
+      <canvas id="sparkline"></canvas>
+    </div>
+
+    <div class="ofensores-title">Top 5 ofensores</div>
+    <div id="ofensores-list">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px;padding:8px 0">Carregando...</div>
+    </div>
+    <div id="ofensores-expand" style="display:none;margin-top:6px">
+      <button onclick="toggleOfensores()" id="btn-ofensores"
+        style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:2px 0;font-weight:600">
+        Ver mais ▼
+      </button>
+    </div>
+  </div>
+
+  <!-- Widget 2: Falta Informação -->
+  <div class="card widget-faltainfo">
+    <div class="card-title">Falta Informação</div>
+    <div class="metric-label">tempo médio parado nesta etapa</div>
+
+    <div class="metric-row">
+      <div class="metric-value" id="fi-media">—</div>
+      <div class="metric-unit-block">
+        <span class="metric-unit-main">dias</span>
+        <span class="metric-unit-tag">média</span>
+      </div>
+    </div>
+
+    <div id="fi-badge" class="metric-badge badge-flat" style="display:none"></div>
+    <div class="metric-sub" id="fi-sub">— terrenos aguardando</div>
+    <div class="sparkline-wrap" id="fi-spark-wrap" style="display:none"><canvas id="sparkline-fi"></canvas></div>
+
+    <div class="ofensores-title" style="margin-top:14px">Terrenos na etapa</div>
+    <div id="fi-list">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px;padding:8px 0">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Widget 3: Análise Preliminar -->
+  <div class="card widget-ap">
+    <div class="card-title">Análise Preliminar (AP)</div>
+    <div class="metric-label">tempo médio parado nesta etapa</div>
+
+    <div class="metric-row">
+      <div class="metric-value" id="ap-media">—</div>
+      <div class="metric-unit-block">
+        <span class="metric-unit-main">dias</span>
+        <span class="metric-unit-tag">média</span>
+      </div>
+    </div>
+
+    <div id="ap-badge" class="metric-badge badge-flat" style="display:none"></div>
+    <div class="metric-sub" id="ap-sub">— terrenos em análise</div>
+    <div class="sparkline-wrap" id="ap-spark-wrap" style="display:none"><canvas id="sparkline-ap"></canvas></div>
+
+    <div class="ofensores-title" style="margin-top:14px">Terrenos na etapa</div>
+    <div id="ap-list">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px;padding:8px 0">Carregando...</div>
+    </div>
+  </div>
+  <!-- Widget 4: Quadro de Estudos (EM + EP Iniciado) -->
+  <div class="card widget-estudos">
+    <div class="card-title">Quadro de Estudos em Andamento</div>
+
+    <!-- EM Iniciado -->
+    <div class="estudos-section">
+      <div class="estudos-stage-header">
+        <span class="estudos-stage-pill pill-em">EM Iniciado</span>
+        <span id="estudos-em-badge" class="metric-badge badge-flat" style="display:none;font-size:10px;padding:2px 7px"></span>
+      </div>
+      <div>
+        <span class="estudos-avg" id="estudos-em-avg">—</span>
+        <span class="estudos-avg-unit">dias</span>
+        <span class="estudos-avg-tag">média</span>
+      </div>
+      <div class="estudos-sub" id="estudos-em-sub">— terrenos</div>
+      <div class="sparkline-wrap" id="em-spark-wrap" style="display:none"><canvas id="sparkline-em"></canvas></div>
+      <div id="estudos-em-list">
+        <div class="loading-dot" style="color:var(--muted);font-size:13px;padding:4px 0">Carregando...</div>
+      </div>
+    </div>
+
+    <hr class="estudos-divider">
+
+    <!-- EP Iniciado -->
+    <div class="estudos-section">
+      <div class="estudos-stage-header">
+        <span class="estudos-stage-pill pill-ep">EP Iniciado</span>
+        <span id="estudos-ep-badge" class="metric-badge badge-flat" style="display:none;font-size:10px;padding:2px 7px"></span>
+      </div>
+      <div>
+        <span class="estudos-avg" id="estudos-ep-avg">—</span>
+        <span class="estudos-avg-unit">dias</span>
+        <span class="estudos-avg-tag">média</span>
+      </div>
+      <div class="estudos-sub" id="estudos-ep-sub">— terrenos</div>
+      <div class="sparkline-wrap" id="ep-spark-wrap" style="display:none"><canvas id="sparkline-ep"></canvas></div>
+      <div id="estudos-ep-list">
+        <div class="loading-dot" style="color:var(--muted);font-size:13px;padding:4px 0">Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widget: Final do Funil -->
+  <div class="card widget-final-funil">
+    <div class="card-title">Final do Funil</div>
+    <div id="final-funil-body">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Widget 5: Pré Proposta -->
+  <div class="card widget-pre-proposta">
+    <div class="card-title">Pré Proposta</div>
+    <div class="pre-proposta-header" id="pre-proposta-header">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px">Carregando...</div>
+    </div>
+    <table class="proposta-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Localização</th>
+          <th>Dias</th>
+          <th style="text-align:right">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="pre-proposta-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Widget 6: EM Relatório de Proposta -->
+  <div class="card widget-proposta">
+    <div class="card-title">EM Relatório de Proposta</div>
+    <div class="proposta-header" id="proposta-header">
+      <div class="loading-dot" style="color:var(--muted);font-size:13px">Carregando...</div>
+    </div>
+    <table class="proposta-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Localização</th>
+          <th>Dias</th>
+          <th style="text-align:right">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="proposta-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Modal Slack Thread -->
+<div id="slack-modal" class="modal-overlay" style="display:none" onclick="handleModalClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-header-title" id="modal-title">Terreno</div>
+        <div class="modal-header-sub" id="modal-sub">Canal de Estudos — Slack</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-messages" class="modal-messages">
+      <div class="modal-loading">Carregando conversa...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let sparkChart = null;
+  const sparkCharts = {}; // instâncias dos sparklines por key (fi, ap, em, ep)
+
+  const SPARK_BG = {
+    '#ef4444': 'rgba(239,68,68,0.08)',
+    '#22c55e': 'rgba(34,197,94,0.08)',
+    '#4f7cff': 'rgba(79,124,255,0.08)',
+  };
+
+  function renderSparkline(key, canvasId, wrapId, historico) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+
+    if (!historico || historico.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    wrap.style.display = 'block';
+    if (!wrap.querySelector('canvas')) {
+      wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    }
+
+    const labels = historico.map(h => {
+      const d = new Date(h.ts);
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    });
+    const values    = historico.map(h => h.avg_dias);
+    const last      = values[values.length - 1];
+    const prev      = values[values.length - 2];
+    const lineColor = last > prev ? '#ef4444' : last < prev ? '#22c55e' : '#4f7cff';
+
+    if (sparkCharts[key]) sparkCharts[key].destroy();
+    sparkCharts[key] = new Chart(document.getElementById(canvasId), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: lineColor,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.4,
+          fill: true,
+          backgroundColor: SPARK_BG[lineColor] || 'rgba(79,124,255,0.08)',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.raw}d (${historico[ctx.dataIndex]?.count || 0} terrenos)`
+            }
+          }
+        },
+        scales: { x: { display: false }, y: { display: false } }
+      }
+    });
+
+    if (wrap) wrap.style.display = 'block';
+  }
+
+  // Caches de threads pré-carregadas por canal
+  const slackPreload        = {};  // Falta Informação → C0854BH9VK6
+  const slackApPreload      = {};  // AP              → C08U5E0EN13
+  const slackEstudosPreload = {};  // EM/EP Iniciado  → C072CQWFS2W
+
+  // Tema claro/escuro
+  const root = document.documentElement;
+  const btnTheme = document.getElementById('btn-theme');
+  let isDark = localStorage.getItem('theme') !== 'light';
+
+  function applyTheme() {
+    if (isDark) {
+      root.classList.remove('light');
+      btnTheme.textContent = '🌙';
+      btnTheme.title = 'Mudar para claro';
+    } else {
+      root.classList.add('light');
+      btnTheme.textContent = '☀️';
+      btnTheme.title = 'Mudar para escuro';
+    }
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    // Atualiza cor do sparkline se existir
+    if (sparkChart) fetchAll();
+  }
+
+  function toggleTheme() {
+    isDark = !isDark;
+    applyTheme();
+  }
+
+  applyTheme();
+
+  async function fetchAll() {
+    try {
+      const [status, funil, fi, ap, estudos, proposta, preProposta, finalFunil] = await Promise.all([
+        fetch('/api/status').then(r => r.json()),
+        fetch('/api/funil-leadtime').then(r => r.json()),
+        fetch('/api/falta-info').then(r => r.json()),
+        fetch('/api/ap').then(r => r.json()),
+        fetch('/api/estudos').then(r => r.json()),
+        fetch('/api/proposta').then(r => r.json()),
+        fetch('/api/pre-proposta').then(r => r.json()),
+        fetch('/api/final-funil').then(r => r.json()),
+      ]);
+      renderStatus(status);
+      renderFunilLeadtime(funil);
+      renderFaltaInfo(fi);
+      renderAP(ap);
+      renderEstudos(estudos);
+      renderProposta(proposta);
+      renderPreProposta(preProposta);
+      renderFinalFunil(finalFunil);
+    } catch(e) {
+      document.getElementById('sync-info').textContent = 'Erro ao carregar';
+    }
+  }
+
+  function renderStatus(s) {
+    const el = document.getElementById('sync-info');
+    if (!s.updated_at) { el.textContent = 'Aguardando sincronização...'; return; }
+    const d = new Date(s.updated_at);
+    const ago = Math.round((Date.now() - d.getTime()) / 60000);
+    const label = ago < 1 ? 'agora' : ago < 60 ? `há ${ago}min` : `às ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+    el.textContent = `Atualizado ${label}`;
+  }
+
+  function renderFunilLeadtime(d) {
+    if (!d || !d.media_atual) return;
+
+    // Média
+    document.getElementById('lt-media').textContent = d.media_atual;
+    document.getElementById('lt-sub').textContent =
+      `${d.total_ativos} terrenos ativos no funil`;
+
+    // Badge tendência
+    const badge = document.getElementById('lt-badge');
+    if (d.variacao_pct !== null && d.variacao_pct !== undefined) {
+      badge.style.display = 'inline-flex';
+      if (d.variacao_pct > 0) {
+        badge.className = 'metric-badge badge-up';
+        badge.textContent = `↑ +${d.variacao_pct}% vs mês anterior`;
+      } else if (d.variacao_pct < 0) {
+        badge.className = 'metric-badge badge-down';
+        badge.textContent = `↓ ${d.variacao_pct}% vs mês anterior`;
+      } else {
+        badge.className = 'metric-badge badge-flat';
+        badge.textContent = `→ estável vs mês anterior`;
+      }
+    }
+
+    // Sparkline de tendência
+    if (d.tendencia && d.tendencia.length) {
+      const labels = d.tendencia.map(t => t.mes.slice(5)); // só MM
+      const values = d.tendencia.map(t => t.media_dias);
+      const last = values[values.length - 1];
+      const prev = values[values.length - 2] || last;
+      const lineColor = last > prev ? '#ef4444' : last < prev ? '#22c55e' : '#4f7cff';
+
+      if (sparkChart) sparkChart.destroy();
+      sparkChart = new Chart(document.getElementById('sparkline'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: lineColor,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.4,
+            fill: true,
+            backgroundColor: lineColor.replace(')', ', 0.08)').replace('rgb', 'rgba'),
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => `${ctx.raw}d (${d.tendencia[ctx.dataIndex]?.qtd} terrenos)` }
+          }},
+          scales: {
+            x: { display: false },
+            y: { display: false }
+          }
+        }
+      });
+    }
+
+    // Ofensores — mostra 2 por padrão, expande ao clicar
+    if (!d.ofensores || !d.ofensores.length) return;
+    const maxDias = d.ofensores[0].dias;
+    const allRows = d.ofensores.map((o, i) => {
+      const pct = Math.round((o.dias / maxDias) * 100);
+      const colorClass = o.dias > 60 ? 'danger' : o.dias > 30 ? 'warning' : '';
+      const local = (o.localizacao || '').split(',').slice(-1)[0]?.trim() || o.localizacao;
+      return `
+        <div class="ofensor-row" data-rank="${i}">
+          <div class="ofensor-rank">${i + 1}</div>
+          <div class="ofensor-info">
+            <div class="ofensor-id">ID-${o.id}</div>
+            <div class="ofensor-local">${local}</div>
+            <div class="bar-track"><div class="bar-fill ${colorClass}" style="width:${pct}%"></div></div>
+          </div>
+          <div style="text-align:right">
+            <div class="ofensor-etapa">${o.etapa}</div>
+            <div class="ofensor-dias">${o.dias}<span>d</span></div>
+          </div>
+        </div>`;
+    });
+
+    const list = document.getElementById('ofensores-list');
+    list.innerHTML = allRows.join('');
+
+    // Esconde os itens além do 2º por padrão
+    list.querySelectorAll('.ofensor-row').forEach(el => {
+      if (parseInt(el.dataset.rank) >= 2) el.style.display = 'none';
+    });
+
+    // Mostra botão se tiver mais de 2
+    if (d.ofensores.length > 2) {
+      document.getElementById('ofensores-expand').style.display = 'block';
+    }
+  }
+
+  let ofensoresAberto = false;
+  function toggleOfensores() {
+    ofensoresAberto = !ofensoresAberto;
+    document.querySelectorAll('#ofensores-list .ofensor-row').forEach(el => {
+      if (parseInt(el.dataset.rank) >= 2) {
+        el.style.display = ofensoresAberto ? '' : 'none';
+      }
+    });
+    document.getElementById('btn-ofensores').textContent =
+      ofensoresAberto ? 'Ver menos ▲' : 'Ver mais ▼';
+  }
+
+  // ── Falta Informação ────────────────────────────────────
+
+  function renderFaltaInfo(d) {
+    if (!d || !d.count) {
+      document.getElementById('fi-media').textContent = '0';
+      document.getElementById('fi-sub').textContent = 'Nenhum terreno nesta etapa';
+      document.getElementById('fi-list').innerHTML = '';
+      return;
+    }
+
+    document.getElementById('fi-media').textContent = d.avg_atual;
+    document.getElementById('fi-sub').textContent =
+      `${d.count} terreno${d.count !== 1 ? 's' : ''} aguardando`;
+
+    // Badge tendência
+    const badge = document.getElementById('fi-badge');
+    if (d.variacao_pct !== null && d.variacao_pct !== undefined) {
+      badge.style.display = 'inline-flex';
+      if (d.variacao_pct > 0) {
+        badge.className = 'metric-badge badge-up';
+        badge.textContent = `↑ +${d.variacao_pct}% vs sinc. anterior`;
+      } else if (d.variacao_pct < 0) {
+        badge.className = 'metric-badge badge-down';
+        badge.textContent = `↓ ${d.variacao_pct}% vs sinc. anterior`;
+      } else {
+        badge.className = 'metric-badge badge-flat';
+        badge.textContent = `→ estável`;
+      }
+    }
+
+    // Sparkline de tendência
+    renderSparkline('fi', 'sparkline-fi', 'fi-spark-wrap', d.historico);
+
+    // Lista de terrenos
+    const list = document.getElementById('fi-list');
+    if (!d.terrenos || !d.terrenos.length) { list.innerHTML = ''; return; }
+
+    list.innerHTML = d.terrenos.map(t => {
+      const loc = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || t.localizacao || '—';
+      const dColor = t.dias_na_etapa > 7 ? 'var(--red)' : t.dias_na_etapa > 3 ? 'var(--yellow)' : 'var(--text)';
+      return `
+        <div class="fi-list-item" id="fi-row-${t.id}">
+          <span class="fi-tid" onclick="openSlackModal('${t.id}', 'Falta Informação')" style="cursor:pointer">ID-${t.id}</span>
+          <span class="fi-loc" title="${t.localizacao || ''}">${loc}</span>
+          <span class="fi-days" style="color:${dColor}">${t.dias_na_etapa}d</span>
+          <span class="fi-slack-btn" id="fi-slack-icon-${t.id}" onclick="openSlackModal('${t.id}', 'Falta Informação')" style="cursor:pointer">⏳</span>
+          <a href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank" class="fi-slack-btn" title="Ver localização" style="text-decoration:none" onclick="event.stopPropagation()">📍</a>
+        </div>`;
+    }).join('');
+
+    // Pré-carrega todas as threads em paralelo
+    preloadFaltaInfoSlack(d.terrenos.map(t => t.id));
+  }
+
+  function preloadFaltaInfoSlack(ids) {
+    ids.forEach(id => {
+      if (slackPreload[id]) return; // já está em cache ou carregando
+      slackPreload[id] = { status: 'loading', data: null };
+      fetch(`/api/slack/terreno/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          slackPreload[id] = { status: 'ready', data };
+          const icon = document.getElementById(`fi-slack-icon-${id}`);
+          if (icon) icon.textContent = data.found ? '💬' : '💬';
+        })
+        .catch(() => {
+          slackPreload[id] = { status: 'error', data: null };
+          const icon = document.getElementById(`fi-slack-icon-${id}`);
+          if (icon) icon.textContent = '💬';
+        });
+    });
+  }
+
+  // ── Análise Preliminar ──────────────────────────────────
+
+  function renderAP(d) {
+    if (!d || !d.count) {
+      document.getElementById('ap-media').textContent = '0';
+      document.getElementById('ap-sub').textContent = 'Nenhum terreno nesta etapa';
+      document.getElementById('ap-list').innerHTML = '';
+      return;
+    }
+
+    document.getElementById('ap-media').textContent = d.avg_atual;
+    document.getElementById('ap-sub').textContent =
+      `${d.count} terreno${d.count !== 1 ? 's' : ''} em análise`;
+
+    const badge = document.getElementById('ap-badge');
+    if (d.variacao_pct !== null && d.variacao_pct !== undefined) {
+      badge.style.display = 'inline-flex';
+      if (d.variacao_pct > 0) {
+        badge.className = 'metric-badge badge-up';
+        badge.textContent = `↑ +${d.variacao_pct}% vs sinc. anterior`;
+      } else if (d.variacao_pct < 0) {
+        badge.className = 'metric-badge badge-down';
+        badge.textContent = `↓ ${d.variacao_pct}% vs sinc. anterior`;
+      } else {
+        badge.className = 'metric-badge badge-flat';
+        badge.textContent = `→ estável`;
+      }
+    }
+
+    // Sparkline de tendência
+    renderSparkline('ap', 'sparkline-ap', 'ap-spark-wrap', d.historico);
+
+    const list = document.getElementById('ap-list');
+    if (!d.terrenos || !d.terrenos.length) { list.innerHTML = ''; return; }
+
+    list.innerHTML = d.terrenos.map(t => {
+      const loc = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || t.localizacao || '—';
+      const dColor = t.dias_na_etapa > 7 ? 'var(--red)' : t.dias_na_etapa > 3 ? 'var(--yellow)' : 'var(--text)';
+      return `
+        <div class="fi-list-item">
+          <span class="fi-tid" onclick="openSlackModalAP('${t.id}', 'AP')" style="cursor:pointer">ID-${t.id}</span>
+          <span class="fi-loc" title="${t.localizacao || ''}">${loc}</span>
+          <span class="fi-days" style="color:${dColor}">${t.dias_na_etapa}d</span>
+          <span class="fi-slack-btn" id="ap-slack-icon-${t.id}" onclick="openSlackModalAP('${t.id}', 'AP')" style="cursor:pointer">⏳</span>
+          <a href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank" class="fi-slack-btn" title="Ver localização" style="text-decoration:none" onclick="event.stopPropagation()">📍</a>
+        </div>`;
+    }).join('');
+
+    preloadApSlack(d.terrenos.map(t => t.id));
+  }
+
+  function preloadApSlack(ids) {
+    ids.forEach(id => {
+      if (slackApPreload[id]) return;
+      slackApPreload[id] = { status: 'loading', data: null };
+      fetch(`/api/slack/ap/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          slackApPreload[id] = { status: 'ready', data };
+          const icon = document.getElementById(`ap-slack-icon-${id}`);
+          if (icon) icon.textContent = (!data.found || data.is_triagem) ? '❌' : '💬';
+        })
+        .catch(() => {
+          slackApPreload[id] = { status: 'error', data: null };
+          const icon = document.getElementById(`ap-slack-icon-${id}`);
+          if (icon) icon.textContent = '💬';
+        });
+    });
+  }
+
+  async function openSlackModalAP(terrainId, etapa) {
+    const modal = document.getElementById('slack-modal');
+    const msgs = document.getElementById('modal-messages');
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — ${etapa}`;
+    document.getElementById('modal-sub').textContent = 'Canal Análises Preliminares · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackApPreload[terrainId];
+
+    if (cached?.status === 'ready') {
+      renderSlackOrTriagem(cached.data, msgs);
+      return;
+    }
+
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackApPreload[terrainId]?.status === 'ready') {
+          renderSlackOrTriagem(slackApPreload[terrainId].data, msgs);
+          return;
+        }
+        if (slackApPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    try {
+      const data = await fetch(`/api/slack/ap/${terrainId}`).then(r => r.json());
+      slackApPreload[terrainId] = { status: 'ready', data };
+      renderSlackOrTriagem(data, msgs);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  function renderSlackOrTriagem(data, msgsEl) {
+    if (!data.found || data.is_triagem) {
+      msgsEl.innerHTML = `
+        <div class="modal-empty">
+          <div style="font-size:36px;margin-bottom:10px">📋</div>
+          <div style="font-weight:600;margin-bottom:6px">Ainda sem estudo de AP no canal</div>
+          <div style="font-size:12px;color:var(--muted)">A mensagem encontrada é de triagem.<br>O estudo de AP ainda não foi postado.</div>
+        </div>`;
+    } else {
+      renderSlackMessages(data);
+    }
+  }
+
+  // ── EM Relatório de Proposta ────────────────────────────
+
+  const slackPropostaPreload = {};  // cache por ID
+  const propostaCanal = {};         // 'em' ou 'ap' por ID
+
+  function renderProposta(d) {
+    const header = document.getElementById('proposta-header');
+    const tbody  = document.getElementById('proposta-tbody');
+    if (!d || !d.total) {
+      header.innerHTML = '<span style="color:var(--muted);font-size:13px">Nenhum terreno nesta etapa</span>';
+      tbody.innerHTML = '';
+      return;
+    }
+
+    header.innerHTML = `<span class="proposta-chip chip-total">⬤ ${d.total} terrenos</span>`;
+
+    tbody.innerHTML = d.terrenos.map(t => {
+      const loc    = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || '—';
+      const dColor = t.dias_na_etapa > 14 ? 'var(--red)' : t.dias_na_etapa > 7 ? 'var(--yellow)' : 'var(--text)';
+      // Determina canal do Slack: sem estudo → foi direto da AP → canal AP
+      const canal = t.link_estudo ? 'em' : 'ap';
+      propostaCanal[t.id] = canal;
+      const slackLabel = canal === 'em' ? '⏳ EM' : '⏳ AP';
+      const slackTitle = canal === 'em' ? 'Estudo de Massa' : 'Análise Preliminar';
+
+      const pastaBtn = t.link_pasta
+        ? `<a class="prop-btn" href="${t.link_pasta}" target="_blank">📁 Pasta</a>`
+        : `<span class="prop-btn disabled">📁 Pasta</span>`;
+      const planilhaBtn = t.link_planilha
+        ? `<a class="prop-btn" href="${t.link_planilha}" target="_blank">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+              <rect x="3" y="3" width="18" height="18" rx="2" fill="#1a9c3e"/>
+              <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Planilha</a>`
+        : `<span class="prop-btn disabled">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+              <rect x="3" y="3" width="18" height="18" rx="2" fill="#ccc"/>
+              <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Planilha</span>`;
+      const estudoBtn = t.link_estudo
+        ? `<a class="prop-btn" href="${t.link_estudo}" target="_blank">📄 Estudo</a>`
+        : `<span class="prop-btn disabled">📄 Estudo</span>`;
+      const geoBtn = `<a class="prop-btn" href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank">📍 Localização</a>`;
+
+      return `<tr class="proposta-row">
+        <td class="prop-id">ID-${t.id}</td>
+        <td class="prop-loc" title="${t.localizacao || ''}">${loc}</td>
+        <td class="prop-dias" style="color:${dColor}">${t.dias_na_etapa}d</td>
+        <td class="prop-actions">
+          <button class="prop-btn prop-btn-slack" id="prop-slack-${t.id}"
+            title="Canal: ${slackTitle}"
+            onclick="openSlackModalProposta('${t.id}')">${slackLabel}</button>
+          ${pastaBtn}
+          ${planilhaBtn}
+          ${estudoBtn}
+          ${geoBtn}
+        </td>
+      </tr>`;
+    }).join('');
+
+    // Pré-carrega Slack para todos os terrenos
+    preloadPropostaSlack(d.terrenos);
+  }
+
+  function preloadPropostaSlack(terrenos) {
+    terrenos.forEach(t => {
+      const id = t.id;
+      if (slackPropostaPreload[id]) return;
+      slackPropostaPreload[id] = { status: 'loading', data: null };
+      const canal = t.link_estudo ? 'em' : 'ap';
+      const endpoint = canal === 'em' ? `/api/slack/estudos/${id}` : `/api/slack/ap/${id}`;
+      fetch(endpoint)
+        .then(r => r.json())
+        .then(data => {
+          slackPropostaPreload[id] = { status: 'ready', data };
+          const btn = document.getElementById(`prop-slack-${id}`);
+          const label = canal === 'em' ? 'EM' : 'AP';
+          if (btn) btn.textContent = data.found ? `💬 ${label}` : `❌ ${label}`;
+        })
+        .catch(() => {
+          slackPropostaPreload[id] = { status: 'error', data: null };
+          const btn = document.getElementById(`prop-slack-${id}`);
+          const label = canal === 'em' ? 'EM' : 'AP';
+          if (btn) btn.textContent = `❌ ${label}`;
+        });
+    });
+  }
+
+  async function openSlackModalProposta(terrainId) {
+    const modal  = document.getElementById('slack-modal');
+    const msgs   = document.getElementById('modal-messages');
+    const canal  = propostaCanal[terrainId] || 'em';
+    const canalLabel = canal === 'em' ? 'Canal Análise de Terrenos (EM)' : 'Canal Análises Preliminares (AP)';
+
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — EM Relatório de Proposta`;
+    document.getElementById('modal-sub').textContent   = canalLabel + ' · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackPropostaPreload[terrainId];
+    if (cached?.status === 'ready') { renderSlackMessages(cached.data); return; }
+
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackPropostaPreload[terrainId]?.status === 'ready') {
+          renderSlackMessages(slackPropostaPreload[terrainId].data); return;
+        }
+        if (slackPropostaPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    try {
+      const endpoint = canal === 'em' ? `/api/slack/estudos/${terrainId}` : `/api/slack/ap/${terrainId}`;
+      const data = await fetch(endpoint).then(r => r.json());
+      slackPropostaPreload[terrainId] = { status: 'ready', data };
+      renderSlackMessages(data);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  // ── Pré Proposta ────────────────────────────────────────
+
+  const slackPrePropostaPreload = {};
+  const prePropostaCanal = {};
+
+  function renderPreProposta(d) {
+    const header = document.getElementById('pre-proposta-header');
+    const tbody  = document.getElementById('pre-proposta-tbody');
+    if (!d || !d.total) {
+      header.innerHTML = '<span style="color:var(--muted);font-size:13px">Nenhum terreno nesta etapa</span>';
+      tbody.innerHTML  = '';
+      return;
+    }
+
+    const hist = d.historico || [];
+    const varPct = d.variacao_pct;
+    let badgeHtml = '';
+    if (varPct !== null && varPct !== undefined) {
+      const up = varPct > 0, stable = varPct === 0;
+      const arrow = stable ? '→' : (up ? '↑' : '↓');
+      const color = stable ? 'var(--accent)' : (up ? 'var(--red)' : 'var(--green)');
+      badgeHtml = `<span style="font-size:12px;color:${color};font-weight:600">${arrow} ${Math.abs(varPct)}%</span>`;
+    }
+
+    header.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:28px;font-weight:700;line-height:1">${d.avg_uteis ?? d.avg_dias ?? 0}<span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:4px">dias úteis média · meta: 2d</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${d.total} terreno${d.total !== 1 ? 's' : ''} ${badgeHtml}</div>
+        </div>
+        <div style="flex:1;min-width:80px;max-width:140px;height:36px;display:${hist.length >= 2 ? 'block' : 'none'}">
+          <canvas id="spark-pre-proposta" style="width:100%;height:100%"></canvas>
+        </div>
+      </div>`;
+
+    if (hist.length >= 2) renderSparkline('pre-proposta', 'spark-pre-proposta', null, hist);
+
+    tbody.innerHTML = d.terrenos.map(t => {
+      const loc = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || '—';
+
+      // Farol de dias úteis
+      const farolEmoji = { verde: '🟢', amarelo: '🟡', vermelho: '🔴', cinza: '⚪' }[t.farol] || '⚪';
+      const farolColor = { verde: 'var(--green)', amarelo: 'var(--yellow)', vermelho: 'var(--red)', cinza: 'var(--muted)' }[t.farol] || 'var(--muted)';
+      const atrasoTxt  = t.dias_atraso > 0 ? ` +${t.dias_atraso}d` : '';
+      const previsaoTxt = t.prazo ? `até ${t.prazo}` : '';
+
+      const canal = t.link_estudo ? 'em' : 'ap';
+      prePropostaCanal[t.id] = canal;
+      const slackLabel = canal === 'em' ? '⏳ EM' : '⏳ AP';
+      const slackTitle = canal === 'em' ? 'Estudo de Massa' : 'Análise Preliminar';
+
+      const pastaBtn = t.link_pasta
+        ? `<a class="prop-btn" href="${t.link_pasta}" target="_blank">📁 Pasta</a>`
+        : `<span class="prop-btn disabled">📁 Pasta</span>`;
+      const planilhaBtn = t.link_planilha
+        ? `<a class="prop-btn" href="${t.link_planilha}" target="_blank">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+              <rect x="3" y="3" width="18" height="18" rx="2" fill="#1a9c3e"/>
+              <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Planilha</a>`
+        : `<span class="prop-btn disabled">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+              <rect x="3" y="3" width="18" height="18" rx="2" fill="#ccc"/>
+              <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Planilha</span>`;
+      const estudoBtn = t.link_estudo
+        ? `<a class="prop-btn" href="${t.link_estudo}" target="_blank">📄 Estudo</a>`
+        : `<span class="prop-btn disabled">📄 Estudo</span>`;
+      const geoBtn = `<a class="prop-btn" href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank">📍 Localização</a>`;
+
+      return `<tr class="proposta-row">
+        <td class="prop-id">ID-${t.id}</td>
+        <td class="prop-loc" title="${t.localizacao || ''}">${loc}</td>
+        <td class="prop-dias">
+          <span title="${t.dias_uteis}d úteis · ${previsaoTxt}" style="color:${farolColor};font-weight:600;white-space:nowrap">
+            ${farolEmoji} ${t.dias_uteis}d${atrasoTxt}
+          </span>
+          ${previsaoTxt ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${previsaoTxt}</div>` : ''}
+        </td>
+        <td class="prop-actions">
+          <button class="prop-btn prop-btn-slack" id="pp-slack-${t.id}"
+            title="Canal: ${slackTitle}"
+            onclick="openSlackModalPreProposta('${t.id}')">${slackLabel}</button>
+          ${pastaBtn}
+          ${planilhaBtn}
+          ${estudoBtn}
+          ${geoBtn}
+        </td>
+      </tr>`;
+    }).join('');
+
+    preloadPrePropostaSlack(d.terrenos);
+  }
+
+  function preloadPrePropostaSlack(terrenos) {
+    terrenos.forEach(t => {
+      const id = t.id;
+      if (slackPrePropostaPreload[id]) return;
+      slackPrePropostaPreload[id] = { status: 'loading', data: null };
+      const canal = t.link_estudo ? 'em' : 'ap';
+      const endpoint = canal === 'em' ? `/api/slack/estudos/${id}` : `/api/slack/ap/${id}`;
+      fetch(endpoint)
+        .then(r => r.json())
+        .then(data => {
+          slackPrePropostaPreload[id] = { status: 'ready', data };
+          const btn = document.getElementById(`pp-slack-${id}`);
+          const label = canal === 'em' ? 'EM' : 'AP';
+          if (btn) btn.textContent = data.found ? `💬 ${label}` : `❌ ${label}`;
+        })
+        .catch(() => {
+          slackPrePropostaPreload[id] = { status: 'error', data: null };
+          const btn = document.getElementById(`pp-slack-${id}`);
+          const label = canal === 'em' ? 'EM' : 'AP';
+          if (btn) btn.textContent = `❌ ${label}`;
+        });
+    });
+  }
+
+  async function openSlackModalPreProposta(terrainId) {
+    const modal  = document.getElementById('slack-modal');
+    const msgs   = document.getElementById('modal-messages');
+    const canal  = prePropostaCanal[terrainId] || 'ap';
+    const canalLabel = canal === 'em' ? 'Canal Análise de Terrenos (EM)' : 'Canal Análises Preliminares (AP)';
+
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — Pré Proposta`;
+    document.getElementById('modal-sub').textContent   = canalLabel + ' · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackPrePropostaPreload[terrainId];
+    if (cached?.status === 'ready') { renderSlackMessages(cached.data); return; }
+
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackPrePropostaPreload[terrainId]?.status === 'ready') {
+          renderSlackMessages(slackPrePropostaPreload[terrainId].data); return;
+        }
+        if (slackPrePropostaPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    try {
+      const endpoint = canal === 'em' ? `/api/slack/estudos/${terrainId}` : `/api/slack/ap/${terrainId}`;
+      const data = await fetch(endpoint).then(r => r.json());
+      slackPrePropostaPreload[terrainId] = { status: 'ready', data };
+      renderSlackMessages(data);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  // ── Quadro de Estudos ───────────────────────────────────
+
+  function renderEstudos(d) {
+    if (!d) return;
+    renderEstudosSection(d.em, 'em');
+    renderEstudosSection(d.ep, 'ep');
+
+    const allIds = [
+      ...(d.em?.terrenos || []),
+      ...(d.ep?.terrenos || []),
+    ].map(t => t.id);
+    preloadEstudosSlack(allIds);
+  }
+
+  function renderEstudosSection(data, tipo) {
+    const avgEl  = document.getElementById(`estudos-${tipo}-avg`);
+    const subEl  = document.getElementById(`estudos-${tipo}-sub`);
+    const listEl = document.getElementById(`estudos-${tipo}-list`);
+    const badge  = document.getElementById(`estudos-${tipo}-badge`);
+
+    if (!data || !data.count) {
+      avgEl.textContent  = '0';
+      subEl.textContent  = 'Nenhum terreno nesta etapa';
+      listEl.innerHTML   = '';
+      return;
+    }
+
+    avgEl.textContent = data.avg_atual;
+    subEl.textContent = `${data.count} terreno${data.count !== 1 ? 's' : ''} em estudo`;
+
+    if (data.variacao_pct !== null && data.variacao_pct !== undefined) {
+      badge.style.display = 'inline-flex';
+      if (data.variacao_pct > 0) {
+        badge.className = 'metric-badge badge-up';
+        badge.textContent = `↑ +${data.variacao_pct}%`;
+      } else if (data.variacao_pct < 0) {
+        badge.className = 'metric-badge badge-down';
+        badge.textContent = `↓ ${data.variacao_pct}%`;
+      } else {
+        badge.className = 'metric-badge badge-flat';
+        badge.textContent = `→ estável`;
+      }
+    }
+
+    // Sparkline de tendência
+    renderSparkline(tipo, `sparkline-${tipo}`, `${tipo}-spark-wrap`, data.historico);
+
+    listEl.innerHTML = (data.terrenos || []).map(t => {
+      const loc    = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || '—';
+
+      // Farol de dias úteis (presente apenas em EM/EP Iniciado)
+      let diasHtml;
+      if (t.farol) {
+        const farolEmoji = { verde: '🟢', amarelo: '🟡', vermelho: '🔴', cinza: '⚪' }[t.farol] || '⚪';
+        const farolColor = { verde: 'var(--green)', amarelo: 'var(--yellow)', vermelho: 'var(--red)', cinza: 'var(--muted)' }[t.farol];
+        const atrasoTxt  = t.dias_atraso > 0 ? ` +${t.dias_atraso}d` : '';
+        const previsaoTxt = t.prazo ? `até ${t.prazo}` : '';
+        diasHtml = `<span style="color:${farolColor};font-weight:600;white-space:nowrap" title="${t.dias_uteis}d úteis · ${previsaoTxt}">${farolEmoji} ${t.dias_uteis}d${atrasoTxt}</span>
+          ${previsaoTxt ? `<div style="font-size:10px;color:var(--muted);line-height:1.2">${previsaoTxt}</div>` : ''}`;
+      } else {
+        const dColor = t.dias_na_etapa > 30 ? 'var(--red)' : t.dias_na_etapa > 14 ? 'var(--yellow)' : 'var(--text)';
+        diasHtml = `<span style="color:${dColor}">${t.dias_na_etapa}d</span>`;
+      }
+
+      return `
+        <div class="fi-list-item">
+          <span class="fi-tid" onclick="openSlackModalEstudos('${t.id}', '${tipo.toUpperCase()} Iniciado')" style="cursor:pointer">ID-${t.id}</span>
+          <span class="fi-loc" title="${t.localizacao || ''}">${loc}</span>
+          <span class="fi-days">${diasHtml}</span>
+          <span class="fi-slack-btn" id="estudos-slack-icon-${t.id}" onclick="openSlackModalEstudos('${t.id}', '${tipo.toUpperCase()} Iniciado')" style="cursor:pointer">⏳</span>
+          <a href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank" class="fi-slack-btn" title="Ver localização" style="text-decoration:none" onclick="event.stopPropagation()">📍</a>
+        </div>`;
+    }).join('');
+  }
+
+  function preloadEstudosSlack(ids) {
+    ids.forEach(id => {
+      if (slackEstudosPreload[id]) return;
+      slackEstudosPreload[id] = { status: 'loading', data: null };
+      fetch(`/api/slack/estudos/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          slackEstudosPreload[id] = { status: 'ready', data };
+          const icon = document.getElementById(`estudos-slack-icon-${id}`);
+          if (icon) icon.textContent = data.found ? '💬' : '❌';
+        })
+        .catch(() => {
+          slackEstudosPreload[id] = { status: 'error', data: null };
+          const icon = document.getElementById(`estudos-slack-icon-${id}`);
+          if (icon) icon.textContent = '❌';
+        });
+    });
+  }
+
+  async function openSlackModalEstudos(terrainId, etapa) {
+    const modal = document.getElementById('slack-modal');
+    const msgs  = document.getElementById('modal-messages');
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — ${etapa}`;
+    document.getElementById('modal-sub').textContent   = 'Canal Análise de Terrenos · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackEstudosPreload[terrainId];
+    if (cached?.status === 'ready') { renderSlackMessages(cached.data); return; }
+
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackEstudosPreload[terrainId]?.status === 'ready') {
+          renderSlackMessages(slackEstudosPreload[terrainId].data); return;
+        }
+        if (slackEstudosPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    try {
+      const data = await fetch(`/api/slack/estudos/${terrainId}`).then(r => r.json());
+      slackEstudosPreload[terrainId] = { status: 'ready', data };
+      renderSlackMessages(data);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  // ── Modal Slack ──────────────────────────────────────────
+
+  async function openSlackModal(terrainId, etapa) {
+    const modal = document.getElementById('slack-modal');
+    const msgs = document.getElementById('modal-messages');
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — ${etapa}`;
+    document.getElementById('modal-sub').textContent = 'Canal de Estudos · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackPreload[terrainId];
+
+    // Já pré-carregado e pronto → abre instantâneo
+    if (cached?.status === 'ready') {
+      renderSlackMessages(cached.data);
+      return;
+    }
+
+    // Ainda carregando → mostra spinner e aguarda
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      // Polling leve até o preload terminar (máx 10s)
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackPreload[terrainId]?.status === 'ready') {
+          renderSlackMessages(slackPreload[terrainId].data);
+          return;
+        }
+        if (slackPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    // Fallback: busca ao vivo
+    try {
+      const data = await fetch(`/api/slack/terreno/${terrainId}`).then(r => r.json());
+      slackPreload[terrainId] = { status: 'ready', data };
+      renderSlackMessages(data);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  function renderSlackMessages(data) {
+    const msgs = document.getElementById('modal-messages');
+    if (!data.found || !data.messages || !data.messages.length) {
+      msgs.innerHTML = `<div class="modal-empty">
+        <div style="font-size:32px;margin-bottom:8px">💬</div>
+        Nenhuma conversa encontrada para este terreno.
+      </div>`;
+      return;
+    }
+    msgs.innerHTML = data.messages.map(m => {
+      const initials = (m.user_name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      const textSafe = m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      return `
+        <div class="chat-msg${m.is_parent ? ' parent' : ''}">
+          <div class="chat-meta">
+            <div class="chat-avatar">${initials}</div>
+            <span class="chat-name">${m.user_name}</span>
+            <span class="chat-time">${m.hora}</span>
+          </div>
+          <div class="chat-text">${textSafe}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function closeModal() {
+    document.getElementById('slack-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function handleModalClick(e) {
+    if (e.target === document.getElementById('slack-modal')) closeModal();
+  }
+
+  async function syncManual() {
+    const btn = document.getElementById('btn-sync');
+    const icon = document.getElementById('sync-icon');
+    btn.disabled = true;
+    icon.className = 'spin';
+    await fetch('/api/sync', { method: 'POST' });
+    await new Promise(r => setTimeout(r, 3000));
+    await fetchAll();
+    btn.disabled = false;
+    icon.className = '';
+  }
+
+  // ── Final do Funil ──────────────────────────────────────
+
+  const slackFinalFunilPreload = {};
+  const finalFunilCanal = {};
+
+  // Pills por etapa
+  const FUNIL_PILLS = {
+    'EP Orçamento Prévio': { label: 'EP Orç.', color: '#7c5cfc', bg: 'rgba(124,92,252,.12)' },
+    'EP Revisão de ROI':   { label: 'EP ROI',  color: '#f59e0b', bg: 'rgba(245,158,11,.12)' },
+  };
+
+  function renderFinalFunil(d) {
+    const body = document.getElementById('final-funil-body');
+    if (!d || !d.total) {
+      body.innerHTML = '<span style="color:var(--muted);font-size:13px">Nenhum terreno nesta etapa</span>';
+      return;
+    }
+
+    const allTerrenos = d.grupos.flatMap(g => g.terrenos.map(t => ({...t, _etapa: g.etapa})));
+
+    body.innerHTML = `
+      <div style="margin-bottom:8px;font-size:12px;color:var(--muted)">${d.total} terreno${d.total !== 1 ? 's' : ''}</div>
+      <table class="proposta-table">
+        <thead><tr>
+          <th>ID</th><th>Localização</th><th>Etapa</th><th>Dias</th><th style="text-align:right">Ações</th>
+        </tr></thead>
+        <tbody>${allTerrenos.map(t => {
+          const loc    = (t.localizacao || '').split(',').slice(-1)[0]?.trim() || '—';
+          const dColor = t.dias_na_etapa > 14 ? 'var(--red)' : t.dias_na_etapa > 7 ? 'var(--yellow)' : 'var(--text)';
+          const pill   = FUNIL_PILLS[t._etapa] || { label: t._etapa, color: 'var(--muted)', bg: 'var(--surface2)' };
+
+          finalFunilCanal[t.id] = 'em'; // Final do Funil sempre canal de estudos (EP)
+          const slackLabel = '⏳ EP';
+          const slackTitle = 'Canal Análise de Terrenos (EP)';
+
+          const pastaBtn = t.link_pasta
+            ? `<a class="prop-btn" href="${t.link_pasta}" target="_blank">📁 Pasta</a>`
+            : `<span class="prop-btn disabled">📁 Pasta</span>`;
+          const planilhaBtn = t.link_planilha
+            ? `<a class="prop-btn" href="${t.link_planilha}" target="_blank">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+                  <rect x="3" y="3" width="18" height="18" rx="2" fill="#1a9c3e"/>
+                  <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+                </svg> Planilha</a>`
+            : `<span class="prop-btn disabled">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+                  <rect x="3" y="3" width="18" height="18" rx="2" fill="#ccc"/>
+                  <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+                </svg> Planilha</span>`;
+          const projetoBtn = t.link_projeto
+            ? `<a class="prop-btn" href="${t.link_projeto}" target="_blank">📄 Projeto</a>`
+            : `<span class="prop-btn disabled">📄 Projeto</span>`;
+          const quadroBtn = t.link_quadro_areas
+            ? `<a class="prop-btn" href="${t.link_quadro_areas}" target="_blank">📐 Quadro Áreas</a>`
+            : `<span class="prop-btn disabled">📐 Quadro Áreas</span>`;
+          const geoBtn = `<a class="prop-btn" href="https://geoseazone.seazone.dev/terreno/${t.id}" target="_blank">📍 Localização</a>`;
+
+          return `<tr class="proposta-row">
+            <td class="prop-id">ID-${t.id}</td>
+            <td class="prop-loc" title="${t.localizacao || ''}">${loc}</td>
+            <td><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;color:${pill.color};background:${pill.bg};white-space:nowrap">${pill.label}</span></td>
+            <td class="prop-dias" style="color:${dColor}">${t.dias_na_etapa}d</td>
+            <td class="prop-actions">
+              <button class="prop-btn prop-btn-slack" id="ff-slack-${t.id}"
+                title="Canal: ${slackTitle}"
+                onclick="openSlackModalFinalFunil('${t.id}')">${slackLabel}</button>
+              ${pastaBtn}${planilhaBtn}${projetoBtn}${quadroBtn}${geoBtn}
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+
+    preloadFinalFunilSlack(allTerrenos);
+  }
+
+  function preloadFinalFunilSlack(terrenos) {
+    terrenos.forEach(t => {
+      if (slackFinalFunilPreload[t.id]) return;
+      slackFinalFunilPreload[t.id] = { status: 'loading', data: null };
+      fetch(`/api/slack/estudos/${t.id}`) // sempre canal de estudos (EP)
+        .then(r => r.json())
+        .then(data => {
+          slackFinalFunilPreload[t.id] = { status: 'ready', data };
+          const btn = document.getElementById(`ff-slack-${t.id}`);
+          if (btn) btn.textContent = data.found ? '💬 EP' : '❌ EP';
+        })
+        .catch(() => {
+          slackFinalFunilPreload[t.id] = { status: 'error', data: null };
+          const btn = document.getElementById(`ff-slack-${t.id}`);
+          if (btn) btn.textContent = '❌ EP';
+        });
+    });
+  }
+
+  async function openSlackModalFinalFunil(terrainId) {
+    const modal  = document.getElementById('slack-modal');
+    const msgs   = document.getElementById('modal-messages');
+
+    document.getElementById('modal-title').textContent = `ID-${terrainId} — Final do Funil`;
+    document.getElementById('modal-sub').textContent   = 'Canal Análise de Terrenos (EP) · Slack';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const cached = slackFinalFunilPreload[terrainId];
+    if (cached?.status === 'ready') { renderSlackMessages(cached.data); return; }
+
+    msgs.innerHTML = '<div class="modal-loading"><span class="loading-dot">Buscando conversa...</span></div>';
+
+    if (cached?.status === 'loading') {
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        if (slackFinalFunilPreload[terrainId]?.status === 'ready') {
+          renderSlackMessages(slackFinalFunilPreload[terrainId].data); return;
+        }
+        if (slackFinalFunilPreload[terrainId]?.status === 'error') break;
+      }
+    }
+
+    try {
+      const data = await fetch(`/api/slack/estudos/${terrainId}`).then(r => r.json());
+      slackFinalFunilPreload[terrainId] = { status: 'ready', data };
+      renderSlackMessages(data);
+    } catch(e) {
+      msgs.innerHTML = '<div class="modal-empty">Erro ao buscar conversa.</div>';
+    }
+  }
+
+  fetchAll();
+  setInterval(fetchAll, 60000);
+</script>
+</body>
+</html>
